@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="importtask">
+
+	<property file="${project.basedir}/../_4all/global.properties"  override="true" />
+
+    <target name="prepare">
+		<property name="mydir"   			value="${project.basedir}" 			override="true" />
+
+		<property file="build.properties"  override="true" />
+
+		<property name="builddir"   		value="${mydir}/build" 				override="true" />
+		<property name="tmp.dir"   			value="${builddir}/tmp"				override="true" />
+		<property name="svn.edir"  			value="${builddir}/svn-export" 		override="true" />
+		<property name="doc.dir"  			value="${builddir}/doc" 			override="true" />
+		<property name="sql.file"  			value="${builddir}/sql.sql" 		override="true" />
+		<property name="svn.sdir"  			value="${mydir}/svn-source" 		override="true" />
+		<property name="joomladir"  		value="${webserver.root}" 			override="true" />
+
+    	<delete dir="${builddir}" failonerror="true" />
+        <mkdir dir="${svn.edir}" />
+        <mkdir dir="${doc.dir}" />
+        <mkdir dir="${tmp.dir}" />
+    </target>
+
+	<!--
+		create a zip archiv of the exported files
+	 -->
+ 	<target name="createpackage">
+      	<delete file="${mydir}/${pname}.zip" quiet="true" />
+		<zip destfile="${mydir}/${pname}.zip">
+ 			<fileset dir="${svn.edir}">
+				<include name="**/**" />
+ 			</fileset>
+		</zip>
+    </target>
+    <!--
+		******************************************
+	 -->
+
+	<!--
+		create the phpDocumentation and link the documentation to the webserver root
+	 -->
+	<target name="documentation">
+		<phpdoc title="API Documentation ${pname}" destdir="${doc.dir}" sourcecode="true" output="HTML:Smarty:PHP" quiet="true">
+		   	<fileset dir="${svn.edir}">
+    			<include name="**/*.php" />
+   			</fileset>
+		</phpdoc>
+
+		<mkdir dir="${webserver.root}/doc/${pname}" />
+		<phingcall target="symboliclink">
+			<property name="source" value="${doc.dir}" />
+			<property name="target" value="${webserver.root}/doc/${pname}/apidoc" />
+		</phingcall>
+	</target>
+    <!--
+		******************************************
+	 -->
+
+	<!--
+		get the last svnrevision from repository and export the repository to a temporary directory
+		then copy all files and replace some tag within the file
+	 -->
+    <target name="svnexport">
+		<svnlastrevision
+   			svnpath="/usr/bin/svn"
+   			repositoryurl="${svn.url}"
+   			propertyname="svn.lastrevision"
+            username="${svn.username}"
+            password="${svn.password}"
+   		/>
+      	<svnexport
+      		svnpath="/usr/bin/svn"
+            username="${svn.username}"
+            password="${svn.password}"
+            force="true"
+            nocache="true"
+            repositoryurl="${svn.url}"
+            todir="${tmp.dir}/svnexport"
+        />
+        <echo>Last SVN Revision: ${svn.lastrevision} </echo>
+ 	    <copy todir="${svn.edir}">
+        	<fileset dir="${tmp.dir}/svnexport">
+	            <include name="**/*" />
+            </fileset>
+	        <filterchain>
+    	    	<replacetokens begintoken="#@#" endtoken="#@#" >
+        	    	<token key="SVNVERSION" value="${svn.lastrevision}" />
+           	    	<token key="PVERSION" value="${pversion}" />
+                </replacetokens>
+            </filterchain>
+        </copy>
+		<delete dir="${tmp.dir}/svnexport" failonerror="false" />
+    </target>
+    <!--
+		******************************************
+	 -->
+
+    <!--
+		Sync the repository, check it out when a checked out repository doesn't exist and
+		update it when a checked out repository exist
+	 -->
+    <target name="syncrepository" >
+    	<echo msg="CHECKOUT=${checkout}"/>
+    	<!-- checking if we should checkout the files -->
+    	<if>
+    		<equals arg1="${checkout}" arg2="1" />
+    		<then>
+    			<echo msg="*********** do checkout/update ************"/>
+    			<!-- checking if a checkout is already made and we should update -->
+    			<available file="${svn.sdir}" type="dir" property="svncheckout" value="true" />
+    			<if>
+    				<equals arg1="${svncheckout}" arg2="true" />
+    				<then>
+    					<phingcall target="update" />
+    				</then>
+    				<else>
+    					<mkdir dir="${svn.sdir}" />
+    					<phingcall target="checkout" />
+    				</else>
+    			</if>
+    		</then>
+    	</if>
+    </target>
+
+    <target name="checkout">
+      	<svncheckout
+      		svnpath="/usr/bin/svn"
+            username="${svn.username}"
+            password="${svn.password}"
+            force="true"
+            nocache="true"
+            repositoryurl="${svn.url}"
+            todir="${svn.sdir}"
+        />
+    </target>
+
+    <target name="update">
+      	<svnupdate
+      		svnpath="/usr/bin/svn"
+            username="${svn.username}"
+            password="${svn.password}"
+            nocache="true"
+            todir="${svn.sdir}"
+        />
+    </target>
+    <!--
+		******************************************
+	 -->
+
+    <!--
+		create a symbolic link, delete the old one before creating the new one
+	 -->
+	<target name="symboliclink">
+		<echo msg="TARGET: ${target}"/>
+		<echo msg="SOURCE: ${source}"/>
+
+		<delete file="${target}" />
+		<exec command="ln -s ${source} ${target}" dir="${project.basedir}" />
+	</target>
+    <!--
+		******************************************
+	 -->
+
+    <!--
+		map language, go thur all directories and make a symbolic link for any file
+	 -->
+	<target name="maplanguage">
+       	<foreach param="source"	absparam="abssourcedir" target="maplanguagefiles">
+        	<fileset dir="${basesource}" >
+            	<type type="dir" />
+            </fileset>
+        	<property name="basetarget" value="${basetarget}" />
+       	</foreach>
+	</target>
+
+	<target name="maplanguagefiles">
+       	<foreach param="sourcefile"	absparam="abssourcefile" target="mapfileindir">
+        	<fileset dir="${abssourcedir}" >
+            	<include name="*.ini" />
+            </fileset>
+        	<property name="targetdir" value="${basetarget}/${source}" />
+       	</foreach>
+	</target>
+    <!--
+		******************************************
+	 -->
+
+    <!--
+		map files in a given dir in a target dir via symlinks
+	 -->
+	<target name="mapfilesindir">
+       	<foreach param="sourcefile"	absparam="abssourcefile" target="mapfileindir">
+        	<fileset dir="${sourcedir}" >
+            	<include name="*.*" />
+            </fileset>
+       	</foreach>
+	</target>
+
+	<target name="mapfileindir">
+		<phingcall target="symboliclink">
+			<property name="source" value="${abssourcefile}" />
+			<property name="target" value="${targetdir}/${sourcefile}" />
+		</phingcall>
+	</target>
+    <!--
+		******************************************
+	 -->
+
+	<!--
+		COMPONENTS
+	-->
+	<target name="linkcomponent">
+		<!-- link the admin part of the component -->
+		<phingcall target="symboliclink">
+			<property name="source" value="${filebase}/code/administrator/components/${pname}" />
+			<property name="target" value="${targetdir}/administrator/components/${pname}" />
+		</phingcall>
+
+		<!-- link the site part of the component -->
+		<phingcall target="symboliclink">
+			<property name="source" value="${filebase}/code/site/components/${pname}" />
+			<property name="target" value="${targetdir}/components/${pname}" />
+		</phingcall>
+
+		<!-- link the admin language files -->
+		<phingcall target="maplanguage">
+			<property name="basesource" value="${filebase}/code/administrator/language" />
+			<property name="basetarget" value="${targetdir}/administrator/language" />
+		</phingcall>
+
+		<!-- link the site language files -->
+		<phingcall target="maplanguage">
+			<property name="basesource" value="${filebase}/code/site/language" />
+			<property name="basetarget" value="${targetdir}/language" />
+		</phingcall>
+
+    </target>
+
+	<target name="linkcomponent_new_repository_layout">
+		<!-- link the admin part of the component -->
+		<phingcall target="symboliclink">
+			<property name="source" value="${filebase}/code/administrator/components/${pname}" />
+			<property name="target" value="${targetdir}/administrator/components/${pname}" />
+		</phingcall>
+
+		<!-- link the site part of the component -->
+		<phingcall target="symboliclink">
+			<property name="source" value="${filebase}/code/components/${pname}" />
+			<property name="target" value="${targetdir}/components/${pname}" />
+		</phingcall>
+
+		<!-- link the admin language files -->
+		<phingcall target="maplanguage">
+			<property name="basesource" value="${filebase}/code/administrator/language" />
+			<property name="basetarget" value="${targetdir}/administrator/language" />
+		</phingcall>
+
+		<!-- link the site language files -->
+		<phingcall target="maplanguage">
+			<property name="basesource" value="${filebase}/code/language" />
+			<property name="basetarget" value="${targetdir}/language" />
+		</phingcall>
+
+    </target>
+
+
+
+
+    <!--
+		******************************************
+	 -->
+
+
+</project>
