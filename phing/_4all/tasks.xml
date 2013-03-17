@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+		Version: "$Id$"
+ -->
 
 <project name="importtask">
+
+	<taskdef name="getversion" classname="getversion" classpath="${phing.dir.importtask}/extensions" />
 
 	<property file="${project.basedir}/../_4all/global.properties"  override="true" />
 
