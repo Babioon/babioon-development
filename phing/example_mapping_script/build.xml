@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="map_into_joomla" default="map">
+
+	<!-- import task -->
+	<import file="${project.basedir}/../_4all/tasks.xml"/>
+	<!-- load properties from file -->
+	<property file="build.properties"  override="true" />
+
+	<property name="packagedir" value="${project.basedir}/.." />
+	<property name="targetdir" value="${webserver.root}" />
+	<property name="build_version" value="branches/j25" />
+
+	<target name="callmapping">
+		<echo msg="FILEBASE:${filebase}"/>
+		<available file="${packagedir}/${projectname}/scripts/phing/map.xml" type="file" property="mapfile" value="1" />
+		<if>
+			<equals arg1="${mapfile}" arg2="1" />
+			<then>
+				<!-- call the map script -->
+				<echo msg="map project: ${projectname}"/>
+				<phing phingfile="${packagedir}/${projectname}/scripts/phing/map.xml" target="do" />
+			</then>
+			<else>
+				<echo msg="map script doesn't exists"/>
+			</else>
+		</if>
+	</target>
+
+
+	<target name="mapcomponents">
+
+    	<delete dir="${packagedir}/build" failonerror="false" />
+        <mkdir dir="${packagedir}/build" />
+
+		<echo msg="#----------------- babioon-koorga -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-koorga" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+		<echo msg="#----------------- babioon-event -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-event" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+		<echo msg="#----------------- babioon-upcc -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-upcc" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+		<echo msg="#----------------- babioon-akal -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-akal" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+		<echo msg="#----------------- brueggen-xml-export -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="brueggen-xml-export" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+		<echo msg="#----------------- brueggen-language-de -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="brueggen-language-de" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+
+	</target>
+
+
+	<target name="mapplugings">
+		<echo msg="#----------------- babioon-spll -----------------#" />
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-spll" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+    </target>
+
+	<target name="mapmodules">
+    </target>
+
+	<target name="maptemplates">
+
+    </target>
+
+	<target name="maplibraries">
+		<phingcall target="callmapping">
+			<property name="projectname" value="babioon-library" />
+			<property name="filebase" value="${packagedir}/${projectname}" />
+		</phingcall>
+
+    </target>
+
+
+	<target name="map">
+		<echo msg="#------------------ mapcomponents ------------------#" />
+		<phingcall target="mapcomponents" />
+		<echo msg="#####################################################" />
+		<echo msg="#------------------- mapplugings -------------------#" />
+		<phingcall target="mapplugings" />
+		<echo msg="#####################################################" />
+		<echo msg="#------------------- mapmodules  -------------------#" />
+		<phingcall target="mapmodules" />
+		<echo msg="#####################################################" />
+		<echo msg="#------------------ maptemplates  ------------------#" />
+		<phingcall target="maptemplates" />
+		<echo msg="#####################################################" />
+		<echo msg="#------------------ maplibraries  ------------------#" />
+		<phingcall target="maplibraries" />
+		<echo msg="#####################################################" />
+
+		<echo msg="#####################################################" />
+
+		<echo msg="#--------- change owner and rights -----------------#" />
+
+		<exec command="chown -R wwwrun:www ${webserver.root}/*" dir="${webserver.root}" />
+<!--
+		<chmod mode="0775">
+			<fileset dir="${webserver.root}">
+				<include name="*" />
+				<include name="**/*" />
+				<type type="dir"/>
+			</fileset>
+
+		</chmod>
+
+		<chmod mode="0644">
+			<fileset dir="${webserver.root}">
+				<include name="*" />
+				<include name="**/*" />
+				<type type="file"/>
+			</fileset>
+		</chmod>
+ -->
+		<echo msg="#####################################################" />
+	</target>
+
+</project>
